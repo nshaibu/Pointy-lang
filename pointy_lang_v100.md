@@ -1,6 +1,6 @@
 # Pointy Language Specification
 
-**Version:** 1.0  
+**Version:** 1.0.0  
 **Date:** June 2025  
 **Author:** Nafiu (github.com/nshaibu)  
 
@@ -24,11 +24,11 @@
 
 ## 1. Introduction
 
-Pointy Language is a domain-specific language (DSL) designed for creating event-based workflows and pipeline orchestration. The language uses an intuitive arrow-based syntax to represent event flow, making it easy to visualize and define complex workflows with sequential execution, parallel processing, conditional branching, and result piping.
+Pointy Language is a domain-specific language (DSL) designed for creating event-based workflows and pipeline orchestration. The language uses an intuitive arrow-based syntax to represent event flow, making it easy to visualise and define complex workflows with sequential execution, parallel processing, conditional branching, and result piping.
 
 ### 1.1 Design Goals
 
-- **Simplicity**: Intuitive arrow-based syntax for workflow visualization
+- **Simplicity**: Intuitive arrow-based syntax for workflow visualisation
 - **Expressiveness**: Support for complex workflow patterns with minimal syntax
 - **Reliability**: Built-in error handling and retry mechanisms
 - **Modularity**: Seamless integration with existing Python event systems
@@ -199,7 +199,7 @@ From highest to lowest precedence:
 **Syntax:** `A -> B`
 
 **Semantics:**
-- Event B executes only after event A completes successfully
+- Event B executes only after Event A completes successfully
 - If A fails, B does not execute
 - Sequential chaining creates a dependency chain
 
@@ -301,10 +301,10 @@ Descriptors are numeric codes that represent event execution outcomes:
 
 ### 7.2 Conditional Branching Rules
 
-1. **Default Behavior**: If no conditional branching is specified, failure terminates the workflow
+1. **Default Behaviour**: If no conditional branching is specified, failure terminates the workflow
 2. **Explicit Conditions**: Only specified descriptor paths are available
-3. **Fallthrough**: If an event returns a descriptor not specified in conditions, workflow terminates
-4. **Multiple Conditions**: Conditions are evaluated in order, first match wins
+3. **Fallthrough**: If an event returns a descriptor not specified in conditions, the workflow terminates
+4. **Multiple Conditions**: Conditions are evaluated in order, first match that wins
 
 ### 7.3 Sink Patterns
 
@@ -348,7 +348,7 @@ ProcessData (0 -> LogError -> NotifyAdmin, 1 -> SaveResults)
 
 ### 8.3 Error Information Piping
 
-Error details can be piped to error handling events:
+Error details can be piped to error-handling events:
 
 ```
 ValidatePayment (0 |-> LogPaymentError -> NotifyCustomer, 1 -> ProcessOrder)
@@ -358,7 +358,7 @@ ValidatePayment (0 |-> LogPaymentError -> NotifyCustomer, 1 -> ProcessOrder)
 
 ## 9. Execution Model
 
-### 9.1 Pipeline Initialization
+### 9.1 Pipeline Initialisation
 
 1. Parse Pointy Language expression
 2. Resolve event names to implementations
@@ -376,13 +376,13 @@ ValidatePayment (0 |-> LogPaymentError -> NotifyCustomer, 1 -> ProcessOrder)
 
 - Parallel events execute in separate threads/processes
 - Sequential events execute in dependency order
-- Result piping synchronizes between events
+- Result piping synchronises between events
 - No shared state between events except passed results
 
 ### 9.4 Resource Management
 
 - Events are responsible for their own resource cleanup
-- Pipeline manages overall execution lifecycle
+- Pipeline manages the overall execution lifecycle
 - Timeout and resource limits are implementation-defined
 
 ---
@@ -404,18 +404,18 @@ from event_pipeline.decorators import event
 
 ```python
 class ValidateInput(EventBase):
-    def execute(self, input_data):
+    def process(self, input_data) -> Tuple[bool, Any]:
         # Implementation
-        return result, descriptor
+        return True, "Event result
 ```
 
 #### 10.2.2 Function-based Events
 
 ```python
 @event
-def process_payment(payment_data):
+def process_payment(payment_data) -> Tuple[bool, Any]:
     # Implementation
-    return result, descriptor
+    return True, "Event result"
 ```
 
 ### 10.3 Runtime Requirements
@@ -452,7 +452,7 @@ identifier       ::= [a-zA-Z][a-zA-Z0-9_]*
 ### 12.1 Well-formedness Rules
 
 1. **Event Resolution**: All event names must resolve to implemented events
-2. **Descriptor Validity**: Descriptors must be in range 0-9
+2. **Descriptor Validity**: Descriptors must be in the range 0-9
 3. **Retry Limits**: Retry counts must be positive integers
 4. **Acyclic Dependencies**: Workflow graphs must not contain cycles
 5. **Reachability**: All events must be reachable from the start
@@ -543,4 +543,4 @@ Implementation-specific error codes should be documented separately by the runti
 
 ---
 
-*This specification defines the syntax and semantics of Pointy Language version 1.0. Future versions may extend or modify these definitions while maintaining backward compatibility where possible.*
+*This specification defines the syntax and semantics of Pointy Language version 1.0.0. Future versions may extend or modify these definitions while maintaining backwards compatibility where possible.*
