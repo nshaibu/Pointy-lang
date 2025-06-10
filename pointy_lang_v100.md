@@ -1,0 +1,546 @@
+# Pointy Language Specification
+
+**Version:** 1.0  
+**Date:** June 2025  
+**Author:** Nafiu (github.com/nshaibu)  
+
+## Table of Contents
+
+1. [Introduction](#1-introduction)
+2. [Language Overview](#2-language-overview)
+3. [Lexical Structure](#3-lexical-structure)
+4. [Syntax Definition](#4-syntax-definition)
+5. [Operators](#5-operators)
+6. [Event System](#6-event-system)
+7. [Control Flow](#7-control-flow)
+8. [Error Handling](#8-error-handling)
+9. [Execution Model](#9-execution-model)
+10. [Integration Requirements](#10-integration-requirements)
+11. [Grammar Specification](#11-grammar-specification)
+12. [Semantic Rules](#12-semantic-rules)
+13. [Examples](#13-examples)
+
+---
+
+## 1. Introduction
+
+Pointy Language is a domain-specific language (DSL) designed for creating event-based workflows and pipeline orchestration. The language uses an intuitive arrow-based syntax to represent event flow, making it easy to visualize and define complex workflows with sequential execution, parallel processing, conditional branching, and result piping.
+
+### 1.1 Design Goals
+
+- **Simplicity**: Intuitive arrow-based syntax for workflow visualization
+- **Expressiveness**: Support for complex workflow patterns with minimal syntax
+- **Reliability**: Built-in error handling and retry mechanisms
+- **Modularity**: Seamless integration with existing Python event systems
+- **Observability**: Clear representation of execution flow and decision points
+
+### 1.2 Use Cases
+
+- Event-driven system orchestration
+- Data processing pipelines
+- Microservice workflow coordination
+- ETL (Extract, Transform, Load) processes
+- Business process automation
+- Approval and review workflows
+
+---
+
+## 2. Language Overview
+
+Pointy Language operates as a thin orchestration layer over Python event implementations. Events are predefined operations that are automatically resolved during pipeline execution through integration with the `event_pipeline` module.
+
+### 2.1 Core Concepts
+
+- **Events**: Named units of work that can be executed
+- **Flows**: Connections between events defining execution order
+- **Descriptors**: Numeric codes representing execution outcomes
+- **Pipelines**: Complete workflow definitions
+- **Results**: Data passed between events
+
+---
+
+## 3. Lexical Structure
+
+### 3.1 Character Set
+
+Pointy Language uses the UTF-8 character set.
+
+### 3.2 Tokens
+
+#### 3.2.1 Identifiers (Event Names)
+
+```
+identifier ::= letter (letter | digit | '_')*
+letter     ::= 'A'..'Z' | 'a'..'z'
+digit      ::= '0'..'9'
+```
+
+**Rules:**
+- Event names must start with a letter
+- Can contain letters, digits, and underscores
+- Case-sensitive
+- Must be descriptive of the action being performed
+
+**Examples:**
+- `ValidateInput`
+- `ProcessPayment`
+- `Send_Email`
+- `extract_data`
+
+#### 3.2.2 Operators
+
+| Operator | Symbol | Description |
+|----------|--------|-------------|
+| Sequential | `->` | Sequential execution |
+| Parallel | `\|\|` | Parallel execution |
+| Pipe Result | `\|->` | Result piping |
+| Retry | `*` | Retry mechanism |
+
+#### 3.2.3 Delimiters
+
+- `(` `)` : Conditional blocks
+- `,` : Separator for multiple conditions
+- `#` : Comments (line comments only)
+
+#### 3.2.4 Literals
+
+```
+descriptor ::= '0'..'9'
+retry_count ::= digit+
+```
+
+### 3.3 Comments
+
+Single-line comments begin with `#` and continue to the end of the line:
+
+```
+ProcessOrder -> ValidatePayment  # Check payment validity
+```
+
+### 3.4 Whitespace
+
+Whitespace (spaces, tabs, newlines) is generally ignored except where it separates tokens.
+
+---
+
+## 4. Syntax Definition
+
+### 4.1 Basic Expressions
+
+#### 4.1.1 Single Event
+
+```
+event_expression ::= identifier
+```
+
+Example: `SubmitForm`
+
+#### 4.1.2 Sequential Flow
+
+```
+sequential_flow ::= expression '->' expression
+```
+
+Example: `A -> B`
+
+#### 4.1.3 Parallel Flow
+
+```
+parallel_flow ::= expression '||' expression
+```
+
+Example: `A || B`
+
+#### 4.1.4 Result Piping
+
+```
+pipe_flow ::= expression '|->' expression
+```
+
+Example: `A |-> B`
+
+### 4.2 Complex Expressions
+
+#### 4.2.1 Conditional Branching
+
+```
+conditional_flow ::= expression '(' condition_list ')'
+condition_list   ::= condition (',' condition)*
+condition        ::= descriptor '->' expression
+condition        ::= descriptor '|->' expression
+```
+
+Example: `A -> B (0 -> C, 1 -> D)`
+
+#### 4.2.2 Retry Specification
+
+```
+retry_expression ::= expression '*' retry_count
+```
+
+Example: `ProcessData * 3`
+
+### 4.3 Operator Precedence
+
+From highest to lowest precedence:
+
+1. `*` (Retry)
+2. `|->` (Pipe Result)
+3. `->` (Sequential)
+4. `||` (Parallel)
+5. `()` (Grouping/Conditional)
+
+---
+
+## 5. Operators
+
+### 5.1 Sequential Operator (`->`)
+
+**Syntax:** `A -> B`
+
+**Semantics:**
+- Event B executes only after event A completes successfully
+- If A fails, B does not execute
+- Sequential chaining creates a dependency chain
+
+**Associativity:** Left-to-right
+
+### 5.2 Parallel Operator (`||`)
+
+**Syntax:** `A || B`
+
+**Semantics:**
+- Events A and B execute concurrently
+- Both events start simultaneously
+- No dependency between parallel events
+- Results can be combined for subsequent operations
+
+**Associativity:** Left-to-right
+
+### 5.3 Pipe Result Operator (`|->`)
+
+**Syntax:** `A |-> B`
+
+**Semantics:**
+- The output of event A becomes the input for event B
+- Creates a data dependency
+- B receives A's result as its input parameter
+- Sequential execution with data flow
+
+**Result Combination Rules:**
+- Single event result: Passed directly
+- Multiple parallel results: Combined into a collection
+- Failed event results: Error information propagated
+
+### 5.4 Retry Operator (`*`)
+
+**Syntax:** `A * n`
+
+**Semantics:**
+- Event A will be retried up to n times if it fails
+- Each retry uses the same input as the original attempt
+- Success on any attempt stops further retries
+- Final failure occurs after all retries are exhausted
+
+**Constraints:**
+- n must be a positive integer
+- Maximum retry count is implementation-defined
+
+### 5.5 Conditional Operator (`()`)
+
+**Syntax:** `A (condition_list)`
+
+**Semantics:**
+- Provides conditional branching based on event outcomes
+- Multiple conditions can be specified
+- Conditions are mutually exclusive
+- Unspecified conditions result in workflow termination
+
+---
+
+## 6. Event System
+
+### 6.1 Event Definition
+
+Events are external entities defined in Python through two mechanisms:
+
+1. **Class-based Events**: Classes inheriting from `EventBase`
+2. **Function-based Events**: Functions decorated with `@event`
+
+### 6.2 Event Registration
+
+Events are automatically discovered and registered by the pipeline runtime. No explicit registration is required in Pointy Language syntax.
+
+### 6.3 Event Naming Convention
+
+- Use PascalCase or snake_case consistently
+- Names should be descriptive verbs or verb phrases
+- Avoid abbreviations unless widely understood
+- Examples: `ValidateInput`, `send_email`, `ProcessPayment`
+
+### 6.4 Event Parameters
+
+Events can receive parameters through:
+- Initial pipeline input
+- Results from preceding events (via pipe operator)
+- Combined results from parallel events
+
+---
+
+## 7. Control Flow
+
+### 7.1 Descriptors
+
+Descriptors are numeric codes that represent event execution outcomes:
+
+| Descriptor | Meaning | Usage |
+|------------|---------|-------|
+| 0 | Failure/Error | Default failure path |
+| 1 | Success | Default success path |
+| 3-9 | User-defined | Custom conditions |
+
+### 7.2 Conditional Branching Rules
+
+1. **Default Behavior**: If no conditional branching is specified, failure terminates the workflow
+2. **Explicit Conditions**: Only specified descriptor paths are available
+3. **Fallthrough**: If an event returns a descriptor not specified in conditions, workflow terminates
+4. **Multiple Conditions**: Conditions are evaluated in order, first match wins
+
+### 7.3 Sink Patterns
+
+Events from different conditional branches can converge to a common subsequent event:
+
+```
+A (0 -> B, 1 -> C) -> D
+```
+
+Both B and C flow to D regardless of which branch was taken.
+
+---
+
+## 8. Error Handling
+
+### 8.1 Error Propagation
+
+- Failed events (descriptor 0) stop sequential execution unless explicitly handled
+- Parallel events continue executing independently
+- Unhandled failures terminate the workflow
+
+### 8.2 Error Recovery Patterns
+
+#### 8.2.1 Retry Pattern
+
+```
+RiskyOperation * 3
+```
+
+#### 8.2.2 Fallback Pattern
+
+```
+PrimaryService (0 -> BackupService, 1 -> ContinueFlow)
+```
+
+#### 8.2.3 Error Logging Pattern
+
+```
+ProcessData (0 -> LogError -> NotifyAdmin, 1 -> SaveResults)
+```
+
+### 8.3 Error Information Piping
+
+Error details can be piped to error handling events:
+
+```
+ValidatePayment (0 |-> LogPaymentError -> NotifyCustomer, 1 -> ProcessOrder)
+```
+
+---
+
+## 9. Execution Model
+
+### 9.1 Pipeline Initialization
+
+1. Parse Pointy Language expression
+2. Resolve event names to implementations
+3. Build execution graph
+4. Validate dependencies and cycles
+
+### 9.2 Execution Phases
+
+1. **Planning**: Determine initial events to execute
+2. **Execution**: Execute events according to dependencies
+3. **Monitoring**: Track event completion and results
+4. **Routing**: Route to next events based on descriptors
+
+### 9.3 Concurrency Model
+
+- Parallel events execute in separate threads/processes
+- Sequential events execute in dependency order
+- Result piping synchronizes between events
+- No shared state between events except passed results
+
+### 9.4 Resource Management
+
+- Events are responsible for their own resource cleanup
+- Pipeline manages overall execution lifecycle
+- Timeout and resource limits are implementation-defined
+
+---
+
+## 10. Integration Requirements
+
+### 10.1 Python Integration
+
+Pointy Language requires integration with the `event_pipeline` Python module:
+
+```python
+from event_pipeline import EventBase
+from event_pipeline.decorators import event
+```
+
+### 10.2 Event Implementation Requirements
+
+#### 10.2.1 Class-based Events
+
+```python
+class ValidateInput(EventBase):
+    def execute(self, input_data):
+        # Implementation
+        return result, descriptor
+```
+
+#### 10.2.2 Function-based Events
+
+```python
+@event
+def process_payment(payment_data):
+    # Implementation
+    return result, descriptor
+```
+
+### 10.3 Runtime Requirements
+
+- Event discovery and registration system
+- Execution engine with dependency resolution
+- Result passing and combination mechanisms
+- Error handling and retry logic
+
+---
+
+## 11. Grammar Specification
+
+```bnf
+pipeline         ::= expression
+expression       ::= conditional_expr
+conditional_expr ::= pipe_expr ('(' condition_list ')')?
+condition_list   ::= condition (',' condition)*
+condition        ::= descriptor ('->' | '|->') pipe_expr
+pipe_expr        ::= parallel_expr ('|->' parallel_expr)*
+parallel_expr    ::= sequential_expr ('||' sequential_expr)*
+sequential_expr  ::= retry_expr ('->' retry_expr)*
+retry_expr       ::= primary_expr ('*' retry_count)?
+primary_expr     ::= identifier | '(' expression ')'
+descriptor       ::= '0'..'9'
+retry_count      ::= [1-9][0-9]*
+identifier       ::= [a-zA-Z][a-zA-Z0-9_]*
+```
+
+---
+
+## 12. Semantic Rules
+
+### 12.1 Well-formedness Rules
+
+1. **Event Resolution**: All event names must resolve to implemented events
+2. **Descriptor Validity**: Descriptors must be in range 0-9
+3. **Retry Limits**: Retry counts must be positive integers
+4. **Acyclic Dependencies**: Workflow graphs must not contain cycles
+5. **Reachability**: All events must be reachable from the start
+
+### 12.2 Type System
+
+Pointy Language is dynamically typed with respect to event parameters and results:
+
+- Events can accept any input type
+- Result types are determined at runtime
+- Type compatibility is enforced by event implementations
+
+### 12.3 Scoping Rules
+
+- Event names have global scope within a pipeline
+- No variable binding or local scopes
+- All identifiers refer to predefined events
+
+---
+
+## 13. Examples
+
+### 13.1 Basic Sequential Flow
+
+```pointy
+ReceiveOrder -> ValidateInventory -> ProcessPayment -> FulfillOrder
+```
+
+### 13.2 Parallel Processing with Result Combination
+
+```pointy
+FetchUserData || FetchPreferences || FetchHistory |-> GenerateRecommendations
+```
+
+### 13.3 Error Handling with Retry
+
+```pointy
+ConnectToDatabase * 3 -> ExecuteQuery (
+    0 -> LogDatabaseError -> NotifyAdmin,
+    1 -> ProcessResults -> CacheData
+)
+```
+
+### 13.4 Complex Workflow with Multiple Branches
+
+```pointy
+SubmitApplication -> ValidateInformation * 2 (
+    0 -> RequestCorrections |-> NotifyApplicant,
+    1 -> PerformCreditCheck (
+        0 -> AssessRisk || OfferLimitedServices |-> NotifyDecision,
+        1 -> CreateAccount || PrepareWelcomePackage |-> ActivateServices
+    )
+) -> SendConfirmationEmail (
+    0 -> LogEmailFailure -> AttemptSMS,
+    1 -> ScheduleFollowUp
+)
+```
+
+### 13.5 Custom Descriptor Usage
+
+```pointy
+ReviewDocument -> MakeDecision (
+    0 -> RejectDocument,
+    1 -> ApproveDocument,
+    3 -> RequestManagerReview -> FinalDecision
+)
+```
+
+---
+
+## Appendix A: Reserved Words
+
+Pointy Language has no reserved words. All identifiers are treated as event names.
+
+## Appendix B: Operator Summary
+
+| Operator | Precedence | Associativity | Description |
+|----------|------------|---------------|-------------|
+| `*` | 1 (highest) | Left | Retry mechanism |
+| `\|->` | 2 | Left | Result piping |
+| `->` | 3 | Left | Sequential execution |
+| `\|\|` | 4 | Left | Parallel execution |
+| `()` | 5 (lowest) | N/A | Grouping/Conditional |
+
+## Appendix C: Error Codes
+
+Implementation-specific error codes should be documented separately by the runtime system.
+
+---
+
+*This specification defines the syntax and semantics of Pointy Language version 1.0. Future versions may extend or modify these definitions while maintaining backward compatibility where possible.*
