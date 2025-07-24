@@ -1,5 +1,5 @@
 # Pointy-lang Specification
-Pointy Language is a powerful domain-specific language (DSL) for creating event-based workflows. This tutorial will guide you from basic concepts to advanced workflows using Pointy Language’s intuitive arrow-based syntax.
+Pointy Language is a powerful domain-specific language (DSL) for creating event-based workflows.
 
 ## Introduction to Pointy Language
 
